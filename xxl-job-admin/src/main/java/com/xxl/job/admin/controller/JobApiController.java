@@ -1,45 +1,34 @@
 package com.xxl.job.admin.controller;
 
 import com.xxl.job.admin.controller.annotation.PermissionLimit;
-import com.xxl.job.admin.core.conf.XxlJobScheduler;
 import com.xxl.job.core.biz.AdminBiz;
+import com.xxl.job.core.biz.model.HandleCallbackParam;
 import com.xxl.job.core.biz.model.ReturnT;
-import org.springframework.beans.factory.InitializingBean;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.*;
 
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import java.io.IOException;
+import javax.annotation.Resource;
+import java.util.List;
 
 /**
- * Created by xuxueli on 17/5/10.
+ * @author YIJIUE
  */
 @Controller
-public class JobApiController implements InitializingBean {
+public class JobApiController {
 
-    @Autowired
+    @Resource
     private AdminBiz adminBiz;
 
-    @Override
-    public void afterPropertiesSet() throws Exception {
-
+    /**
+     * 执行结果回调接口
+     * @param callbackParamList 回调列表
+     */
+    @PostMapping("/api")
+    @ResponseBody
+    @PermissionLimit(limit = false)
+    public ReturnT<String> api(@RequestBody List<HandleCallbackParam> callbackParamList) {
+        return adminBiz.callback(callbackParamList);
     }
-
-    @RequestMapping(AdminBiz.MAPPING)
-    @PermissionLimit(limit=false)
-    public void api(HttpServletRequest request, HttpServletResponse response) throws IOException, ServletException {
-        XxlJobScheduler.invokeAdminService(request, response);
-    }
-
-    /*@RequestMapping("/test")
-    public ReturnT<String> api(@RequestParam String appName, @RequestParam String group){
-        ReturnT<String> result = adminBiz.registryByDiscovery(appName, group);
-        return result;
-    }*/
 
 
 }

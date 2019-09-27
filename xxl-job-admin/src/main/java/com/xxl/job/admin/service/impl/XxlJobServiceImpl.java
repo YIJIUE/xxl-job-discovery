@@ -381,8 +381,7 @@ public class XxlJobServiceImpl implements XxlJobService {
 		StringBuilder stringBuilder = new StringBuilder();
 		if (!CollectionUtils.isEmpty(serviceInstances)) {
 			serviceInstances.forEach(val -> {
-				//String registryValue = val.getIPAddr() + ":" + val.getPort();
-				String registryValue = val.getIPAddr() + ":" + 9999;
+				String registryValue = val.getIPAddr() + ":" + val.getPort();
 				int ret = xxlJobRegistryDao.registryUpdate(group, xxlJobGroup.getAppName(), registryValue);
 				if (ret < 1) {
 					xxlJobRegistryDao.registrySave(group, xxlJobGroup.getAppName(), registryValue);

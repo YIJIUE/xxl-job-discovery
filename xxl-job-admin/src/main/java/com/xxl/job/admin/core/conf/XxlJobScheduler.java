@@ -7,15 +7,8 @@ import com.xxl.job.admin.core.thread.JobTriggerPoolHelper;
 import com.xxl.job.admin.core.util.I18nUtil;
 import com.xxl.job.core.biz.AdminBiz;
 import com.xxl.job.core.biz.ExecutorBiz;
+import com.xxl.job.core.biz.impl.ExecutorBizImpl;
 import com.xxl.job.core.enums.ExecutorBlockStrategyEnum;
-import com.xxl.rpc.remoting.invoker.XxlRpcInvokerFactory;
-import com.xxl.rpc.remoting.invoker.call.CallType;
-import com.xxl.rpc.remoting.invoker.reference.XxlRpcReferenceBean;
-import com.xxl.rpc.remoting.invoker.route.LoadBalance;
-import com.xxl.rpc.remoting.net.NetEnum;
-import com.xxl.rpc.remoting.net.impl.servlet.server.ServletServerHandler;
-import com.xxl.rpc.remoting.provider.XxlRpcProviderFactory;
-import com.xxl.rpc.serialize.Serializer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.DisposableBean;
@@ -56,7 +49,7 @@ public class XxlJobScheduler implements InitializingBean, DisposableBean {
         JobFailMonitorHelper.getInstance().start();
 
         // admin-server
-        initRpcProvider();
+        //initRpcProvider();
 
         // start-schedule
         JobScheduleHelper.getInstance().start();
@@ -80,7 +73,7 @@ public class XxlJobScheduler implements InitializingBean, DisposableBean {
         JobFailMonitorHelper.getInstance().toStop();
 
         // admin-server
-        stopRpcProvider();
+        //stopRpcProvider();
     }
 
     // ---------------------- I18n ----------------------
@@ -91,32 +84,10 @@ public class XxlJobScheduler implements InitializingBean, DisposableBean {
         }
     }
 
-    // ---------------------- admin rpc provider (no server version) ----------------------
-    private static ServletServerHandler servletServerHandler;
-    private void initRpcProvider(){
-        // init
-        XxlRpcProviderFactory xxlRpcProviderFactory = new XxlRpcProviderFactory();
-        xxlRpcProviderFactory.initConfig(
-                NetEnum.NETTY_HTTP,
-                Serializer.SerializeEnum.HESSIAN.getSerializer(),
-                null,
-                0,
-                XxlJobAdminConfig.getAdminConfig().getAccessToken(),
-                null,
-                null);
 
-        // add services
-        xxlRpcProviderFactory.addService(AdminBiz.class.getName(), null, XxlJobAdminConfig.getAdminConfig().getAdminBiz());
-
-        // servlet handler
-        servletServerHandler = new ServletServerHandler(xxlRpcProviderFactory);
-    }
-    private void stopRpcProvider() throws Exception {
-        XxlRpcInvokerFactory.getInstance().stop();
-    }
     public static void invokeAdminService(HttpServletRequest request, HttpServletResponse response) throws IOException, ServletException {
         // -> 直接调用adminBiz.registry
-        servletServerHandler.handle(null, request, response);
+        //servletServerHandler.handle(null, request, response);
         //adminBiz.registry(request.getParameterMap());
     }
 
@@ -135,21 +106,7 @@ public class XxlJobScheduler implements InitializingBean, DisposableBean {
         if (executorBiz != null) {
             return executorBiz;
         }
-
-        // set-cache
-        executorBiz = (ExecutorBiz) new XxlRpcReferenceBean(
-                NetEnum.NETTY_HTTP,
-                Serializer.SerializeEnum.HESSIAN.getSerializer(),
-                CallType.SYNC,
-                LoadBalance.ROUND,
-                ExecutorBiz.class,
-                null,
-                3000,
-                address,
-                XxlJobAdminConfig.getAdminConfig().getAccessToken(),
-                null,
-                null).getObject();
-
+        executorBiz = new ExecutorBizImpl();
         executorBizRepository.put(address, executorBiz);
         return executorBiz;
     }

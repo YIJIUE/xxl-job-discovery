@@ -1,18 +1,16 @@
 package com.xxl.job.admin.core.trigger;
 
+import com.alibaba.fastjson.JSON;
 import com.xxl.job.admin.core.conf.XxlJobAdminConfig;
-import com.xxl.job.admin.core.conf.XxlJobScheduler;
 import com.xxl.job.admin.core.model.XxlJobGroup;
 import com.xxl.job.admin.core.model.XxlJobInfo;
 import com.xxl.job.admin.core.model.XxlJobLog;
 import com.xxl.job.admin.core.route.ExecutorRouteStrategyEnum;
 import com.xxl.job.admin.core.util.I18nUtil;
-import com.xxl.job.core.biz.ExecutorBiz;
 import com.xxl.job.core.biz.model.ReturnT;
 import com.xxl.job.core.biz.model.TriggerParam;
 import com.xxl.job.core.enums.ExecutorBlockStrategyEnum;
-import com.xxl.rpc.util.IpUtil;
-import com.xxl.rpc.util.ThrowableUtil;
+import com.xxl.job.core.util.HttpUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -154,7 +152,7 @@ public class XxlJobTrigger {
         // 5、collection trigger info
         StringBuffer triggerMsgSb = new StringBuffer();
         triggerMsgSb.append(I18nUtil.getString("jobconf_trigger_type")).append("：").append(triggerType.getTitle());
-        triggerMsgSb.append("<br>").append(I18nUtil.getString("jobconf_trigger_admin_adress")).append("：").append(IpUtil.getIp());
+        triggerMsgSb.append("<br>").append(I18nUtil.getString("jobconf_trigger_admin_adress")).append("：").append(address);
         triggerMsgSb.append("<br>").append(I18nUtil.getString("jobconf_trigger_exe_regtype")).append("：")
                 .append( (group.getAddressType() == 0)?I18nUtil.getString("jobgroup_field_addressType_0"):I18nUtil.getString("jobgroup_field_addressType_1") );
         triggerMsgSb.append("<br>").append(I18nUtil.getString("jobconf_trigger_exe_regaddress")).append("：").append(group.getRegistryList());
@@ -190,13 +188,14 @@ public class XxlJobTrigger {
      * @return
      */
     public static ReturnT<String> runExecutor(TriggerParam triggerParam, String address){
-        ReturnT<String> runResult = null;
+        ReturnT<String> runResult;
         try {
-            ExecutorBiz executorBiz = XxlJobScheduler.getExecutorBiz(address);
-            runResult = executorBiz.run(triggerParam);
+            String result = HttpUtil.sendHttpPost("http://" + address + HttpUtil.executorApi, triggerParam);
+            runResult = JSON.toJavaObject(JSON.parseObject(result), ReturnT.class);
+            //runResult = executorBiz.run();
         } catch (Exception e) {
             logger.error(">>>>>>>>>>> xxl-job trigger error, please check if the executor[{}] is running.", address, e);
-            runResult = new ReturnT<String>(ReturnT.FAIL_CODE, ThrowableUtil.toString(e));
+            runResult = new ReturnT<>(ReturnT.FAIL_CODE, e.toString());
         }
 
         StringBuffer runResultSB = new StringBuffer(I18nUtil.getString("jobconf_trigger_run") + "：");

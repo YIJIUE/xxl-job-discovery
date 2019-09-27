@@ -1,13 +1,14 @@
 package com.xxl.job.core.thread;
 
-import com.xxl.job.core.biz.AdminBiz;
+import com.alibaba.fastjson.JSON;
 import com.xxl.job.core.biz.model.HandleCallbackParam;
 import com.xxl.job.core.biz.model.ReturnT;
 import com.xxl.job.core.enums.RegistryConfig;
-import com.xxl.job.core.executor.XxlJobExecutor;
 import com.xxl.job.core.log.XxlJobFileAppender;
 import com.xxl.job.core.log.XxlJobLogger;
 import com.xxl.job.core.util.FileUtil;
+import com.xxl.job.core.util.HttpUtil;
+import com.xxl.job.core.util.SerializeUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -20,6 +21,7 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * Created by xuxueli on 16/7/22.
+ * @author YIJIUE
  */
 public class TriggerCallbackThread {
     private static Logger logger = LoggerFactory.getLogger(TriggerCallbackThread.class);
@@ -45,12 +47,6 @@ public class TriggerCallbackThread {
     private Thread triggerRetryCallbackThread;
     private volatile boolean toStop = false;
     public void start() {
-
-        // valid
-        if (XxlJobExecutor.getAdminBizList() == null) {
-            logger.warn(">>>>>>>>>>> xxl-job, executor callback config fail, adminAddresses is null.");
-            return;
-        }
 
         // callback
         triggerCallbackThread = new Thread(new Runnable() {
@@ -161,20 +157,20 @@ public class TriggerCallbackThread {
     private void doCallback(List<HandleCallbackParam> callbackParamList){
         boolean callbackRet = false;
         // callback, will retry if error
-        for (AdminBiz adminBiz: XxlJobExecutor.getAdminBizList()) {
             try {
-                ReturnT<String> callbackResult = adminBiz.callback(callbackParamList);
+                // -> 回调
+                String result = HttpUtil.sendHttpPost("http://127.0.0.1:8081" + HttpUtil.callBackApi, callbackParamList);
+                ReturnT<String> callbackResult = JSON.toJavaObject(JSON.parseObject(result), ReturnT.class);
                 if (callbackResult!=null && ReturnT.SUCCESS_CODE == callbackResult.getCode()) {
                     callbackLog(callbackParamList, "<br>----------- xxl-job job callback finish.");
                     callbackRet = true;
-                    break;
                 } else {
                     callbackLog(callbackParamList, "<br>----------- xxl-job job callback fail, callbackResult:" + callbackResult);
                 }
             } catch (Exception e) {
                 callbackLog(callbackParamList, "<br>----------- xxl-job job callback error, errorMsg:" + e.getMessage());
             }
-        }
+
         if (!callbackRet) {
             appendFailCallbackFile(callbackParamList);
         }
@@ -204,8 +200,7 @@ public class TriggerCallbackThread {
         }
 
         // append file
-        byte[] callbackParamList_bytes = XxlJobExecutor.getSerializer().serialize(callbackParamList);
-
+        byte[] callbackParamList_bytes = SerializeUtil.serialize(callbackParamList);
         File callbackLogFile = new File(failCallbackFileName.replace("{x}", String.valueOf(System.currentTimeMillis())));
         if (callbackLogFile.exists()) {
             for (int i = 0; i < 100; i++) {
@@ -218,7 +213,7 @@ public class TriggerCallbackThread {
         FileUtil.writeFileContent(callbackLogFile, callbackParamList_bytes);
     }
 
-    private void retryFailCallbackFile(){
+    private void retryFailCallbackFile() throws Exception {
 
         // valid
         File callbackLogPath = new File(failCallbackFilePath);
@@ -228,14 +223,15 @@ public class TriggerCallbackThread {
         if (callbackLogPath.isFile()) {
             callbackLogPath.delete();
         }
-        if (!(callbackLogPath.isDirectory() && callbackLogPath.list()!=null && callbackLogPath.list().length>0)) {
+        if (!(callbackLogPath.isDirectory() && callbackLogPath.list() != null && callbackLogPath.list().length > 0)) {
             return;
         }
 
         // load and clear file, retry
-        for (File callbaclLogFile: callbackLogPath.listFiles()) {
+        for (File callbaclLogFile : callbackLogPath.listFiles()) {
             byte[] callbackParamList_bytes = FileUtil.readFileContent(callbaclLogFile);
-            List<HandleCallbackParam> callbackParamList = (List<HandleCallbackParam>) XxlJobExecutor.getSerializer().deserialize(callbackParamList_bytes, HandleCallbackParam.class);
+            List<HandleCallbackParam> list = (List<HandleCallbackParam>) SerializeUtil.deserialize(callbackParamList_bytes, Object.class);
+            List<HandleCallbackParam> callbackParamList = JSON.parseArray(JSON.toJSONString(list), HandleCallbackParam.class);
 
             callbaclLogFile.delete();
             doCallback(callbackParamList);
