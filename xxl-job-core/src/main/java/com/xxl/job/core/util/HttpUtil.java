@@ -30,7 +30,7 @@ public class HttpUtil {
 
     public final static String adminList = "/v1/executor/list";
 
-    public final static String callBackApi = "/xxl-job-admin" + AdminBiz.MAPPING;
+    public final static String callBackApi = AdminBiz.MAPPING;
 
     /**
      * json to invoke
