@@ -1,21 +1,18 @@
 package com.xxl.job.admin.core.thread;
 
 import com.xxl.job.admin.core.conf.XxlJobAdminConfig;
-import com.xxl.job.admin.core.discovery.DiscoveryUtil;
 import com.xxl.job.admin.core.model.XxlJobGroup;
-import com.xxl.job.admin.core.model.XxlJobRegistry;
-import com.xxl.job.admin.service.XxlJobService;
 import com.xxl.job.core.enums.RegistryConfig;
+import com.xxl.job.core.util.HttpUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.util.CollectionUtils;
+import org.springframework.util.StringUtils;
 
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
+import java.util.Map;
+import java.util.concurrent.*;
 
 /**
  * job registry instance
@@ -26,17 +23,15 @@ import java.util.concurrent.TimeUnit;
 public class JobRegistryMonitorHelper {
     private static Logger logger = LoggerFactory.getLogger(JobRegistryMonitorHelper.class);
 
-    @Autowired
-    private DiscoveryUtil discoveryUtil;
-
-    @Autowired
-    private XxlJobService xxlJobService;
-
     private static JobRegistryMonitorHelper instance = new JobRegistryMonitorHelper();
 
     public static JobRegistryMonitorHelper getInstance() {
         return instance;
     }
+
+    private static ExecutorService executorService = new ThreadPoolExecutor(Runtime.getRuntime().availableProcessors(),
+            Runtime.getRuntime().availableProcessors(), 10L, TimeUnit.SECONDS, new LinkedBlockingDeque<>(200), (Runnable r) -> new Thread(r, "notice_thread_pool")
+    );
 
     private Thread registryThread;
     private volatile boolean toStop = false;
@@ -55,11 +50,28 @@ public class JobRegistryMonitorHelper {
                         });
                         if (!CollectionUtils.isEmpty(groupList)) {
                             // remove dead address (admin/executor) 删除90秒内无更新的注册列表
-							List<Integer> ids = XxlJobAdminConfig.getAdminConfig().getXxlJobRegistryDao().findDead(RegistryConfig.DEAD_TIMEOUT);
-							if (!CollectionUtils.isEmpty(ids)) {
-								XxlJobAdminConfig.getAdminConfig().getXxlJobRegistryDao().removeDead(ids);
-							}
+                            List<Integer> ids = XxlJobAdminConfig.getAdminConfig().getXxlJobRegistryDao().findDead(RegistryConfig.DEAD_TIMEOUT);
+                            if (!CollectionUtils.isEmpty(ids)) {
+                                XxlJobAdminConfig.getAdminConfig().getXxlJobRegistryDao().removeDead(ids);
+                            }
                         }
+                        List<XxlJobGroup> noticeList = XxlJobAdminConfig.getAdminConfig().getXxlJobGroupDao().findByAddressType(0);
+                        noticeList.forEach(xxlJobGroup -> {
+                            if (!StringUtils.isEmpty(xxlJobGroup.getAddressList())) {
+                                String[] appList = xxlJobGroup.getAddressList().split(",");
+                                for (String app : appList) {
+                                    executorService.submit(() -> {
+                                        try {
+                                            Map<String, String> map = new HashMap<>(1);
+                                            map.put("adminName", XxlJobAdminConfig.getAdminConfig().getName());
+                                            HttpUtil.postFromParam("http://" + app + HttpUtil.adminList, map);
+                                        } catch (Exception e) {
+                                            logger.error("notice app error : {}, url address : {}", e.toString(), app);
+                                        }
+                                    });
+                                }
+                            }
+                        });
                     } catch (Exception e) {
                         if (!toStop) {
                             logger.error(">>>>>>>>>>> xxl-job, job registry monitor thread error:{}", e);

@@ -1,7 +1,6 @@
 package com.xxl.job.admin.service.impl;
 
 import com.netflix.appinfo.InstanceInfo;
-import com.xxl.job.admin.core.discovery.DiscoveryUtil;
 import com.xxl.job.admin.core.model.XxlJobGroup;
 import com.xxl.job.admin.core.model.XxlJobInfo;
 import com.xxl.job.admin.core.cron.CronExpression;
@@ -14,10 +13,10 @@ import com.xxl.job.core.biz.model.ReturnT;
 import com.xxl.job.core.enums.ExecutorBlockStrategyEnum;
 import com.xxl.job.core.glue.GlueTypeEnum;
 import com.xxl.job.core.util.DateUtil;
+import com.xxl.job.core.util.DiscoveryUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.cloud.client.ServiceInstance;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.CollectionUtils;
@@ -36,8 +35,6 @@ import java.util.*;
 public class XxlJobServiceImpl implements XxlJobService {
 	private static Logger logger = LoggerFactory.getLogger(XxlJobServiceImpl.class);
 
-	@Autowired
-	private DiscoveryUtil discoveryUtil;
 	@Resource
 	private XxlJobGroupDao xxlJobGroupDao;
 	@Resource
@@ -376,7 +373,7 @@ public class XxlJobServiceImpl implements XxlJobService {
 	@Override
 	@Transactional
 	public ReturnT<String> registryByDiscovery(XxlJobGroup xxlJobGroup, String group) {
-		List<InstanceInfo> serviceInstances = discoveryUtil.getServicesByDiscovery(xxlJobGroup.getAppName());
+		List<InstanceInfo> serviceInstances = DiscoveryUtil.getServicesByDiscovery(xxlJobGroup.getAppName());
 
 		StringBuilder stringBuilder = new StringBuilder();
 		if (!CollectionUtils.isEmpty(serviceInstances)) {

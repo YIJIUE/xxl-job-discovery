@@ -42,6 +42,9 @@ public class XxlJobAdminConfig implements InitializingBean{
     @Value("${spring.mail.username}")
     private String emailUserName;
 
+    @Value("${spring.application.name}")
+    private String name;
+
     // dao, service
 
     @Resource
@@ -104,6 +107,10 @@ public class XxlJobAdminConfig implements InitializingBean{
 
     public DataSource getDataSource() {
         return dataSource;
+    }
+
+    public String getName() {
+        return name;
     }
 
 }

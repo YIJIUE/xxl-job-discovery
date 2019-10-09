@@ -6,6 +6,7 @@ import com.xxl.job.core.biz.model.ReturnT;
 import com.xxl.job.core.enums.RegistryConfig;
 import com.xxl.job.core.log.XxlJobFileAppender;
 import com.xxl.job.core.log.XxlJobLogger;
+import com.xxl.job.core.util.DiscoveryUtil;
 import com.xxl.job.core.util.FileUtil;
 import com.xxl.job.core.util.HttpUtil;
 import com.xxl.job.core.util.SerializeUtil;
@@ -16,18 +17,21 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
 /**
  * Created by xuxueli on 16/7/22.
+ *
  * @author YIJIUE
  */
 public class TriggerCallbackThread {
     private static Logger logger = LoggerFactory.getLogger(TriggerCallbackThread.class);
 
     private static TriggerCallbackThread instance = new TriggerCallbackThread();
-    public static TriggerCallbackThread getInstance(){
+
+    public static TriggerCallbackThread getInstance() {
         return instance;
     }
 
@@ -35,7 +39,8 @@ public class TriggerCallbackThread {
      * job results callback queue
      */
     private LinkedBlockingQueue<HandleCallbackParam> callBackQueue = new LinkedBlockingQueue<HandleCallbackParam>();
-    public static void pushCallBack(HandleCallbackParam callback){
+
+    public static void pushCallBack(HandleCallbackParam callback) {
         getInstance().callBackQueue.add(callback);
         logger.debug(">>>>>>>>>>> xxl-job, push callback request, logId:{}", callback.getLogId());
     }
@@ -46,6 +51,7 @@ public class TriggerCallbackThread {
     private Thread triggerCallbackThread;
     private Thread triggerRetryCallbackThread;
     private volatile boolean toStop = false;
+
     public void start() {
 
         // callback
@@ -55,7 +61,7 @@ public class TriggerCallbackThread {
             public void run() {
 
                 // normal callback
-                while(!toStop){
+                while (!toStop) {
                     try {
                         HandleCallbackParam callback = getInstance().callBackQueue.take();
                         if (callback != null) {
@@ -66,7 +72,7 @@ public class TriggerCallbackThread {
                             callbackParamList.add(callback);
 
                             // callback, will retry if error
-                            if (callbackParamList!=null && callbackParamList.size()>0) {
+                            if (callbackParamList != null && callbackParamList.size() > 0) {
                                 doCallback(callbackParamList);
                             }
                         }
@@ -81,7 +87,7 @@ public class TriggerCallbackThread {
                 try {
                     List<HandleCallbackParam> callbackParamList = new ArrayList<HandleCallbackParam>();
                     int drainToNum = getInstance().callBackQueue.drainTo(callbackParamList);
-                    if (callbackParamList!=null && callbackParamList.size()>0) {
+                    if (callbackParamList != null && callbackParamList.size() > 0) {
                         doCallback(callbackParamList);
                     }
                 } catch (Exception e) {
@@ -102,7 +108,7 @@ public class TriggerCallbackThread {
         triggerRetryCallbackThread = new Thread(new Runnable() {
             @Override
             public void run() {
-                while(!toStop){
+                while (!toStop) {
                     try {
                         retryFailCallbackFile();
                     } catch (Exception e) {
@@ -126,7 +132,8 @@ public class TriggerCallbackThread {
         triggerRetryCallbackThread.start();
 
     }
-    public void toStop(){
+
+    public void toStop() {
         toStop = true;
         // stop callback, interrupt and wait
         if (triggerCallbackThread != null) {    // support empty admin address
@@ -152,24 +159,32 @@ public class TriggerCallbackThread {
 
     /**
      * do callback, will retry if error
+     *
      * @param callbackParamList
      */
-    private void doCallback(List<HandleCallbackParam> callbackParamList){
+    private void doCallback(List<HandleCallbackParam> callbackParamList) {
         boolean callbackRet = false;
         // callback, will retry if error
-            try {
-                // -> 回调
-                String result = HttpUtil.sendHttpPost("http://127.0.0.1:8081" + HttpUtil.callBackApi, callbackParamList);
-                ReturnT<String> callbackResult = JSON.toJavaObject(JSON.parseObject(result), ReturnT.class);
-                if (callbackResult!=null && ReturnT.SUCCESS_CODE == callbackResult.getCode()) {
-                    callbackLog(callbackParamList, "<br>----------- xxl-job job callback finish.");
-                    callbackRet = true;
-                } else {
-                    callbackLog(callbackParamList, "<br>----------- xxl-job job callback fail, callbackResult:" + callbackResult);
+        // -> callBack for Admin
+        Map<String, List<String>> adminServicesList = DiscoveryUtil.adminServicesList;
+        for (String key : adminServicesList.keySet()) {
+            List<String> urls = adminServicesList.get(key);
+            for (String url : urls) {
+                try {
+                    String result = HttpUtil.sendHttpPost("http://" + url + HttpUtil.callBackApi, callbackParamList);
+                    ReturnT<String> callbackResult = JSON.toJavaObject(JSON.parseObject(result), ReturnT.class);
+                    if (callbackResult != null && ReturnT.SUCCESS_CODE == callbackResult.getCode()) {
+                        callbackLog(callbackParamList, "<br>----------- xxl-job job callback finish.");
+                        callbackRet = true;
+                        break;
+                    } else {
+                        callbackLog(callbackParamList, "<br>----------- xxl-job job callback fail, callbackResult:" + callbackResult);
+                    }
+                } catch (Exception e) {
+                    callbackLog(callbackParamList, "<br>----------- xxl-job job callback error, errorMsg:" + e.getMessage());
                 }
-            } catch (Exception e) {
-                callbackLog(callbackParamList, "<br>----------- xxl-job job callback error, errorMsg:" + e.getMessage());
             }
+        }
 
         if (!callbackRet) {
             appendFailCallbackFile(callbackParamList);
@@ -179,8 +194,8 @@ public class TriggerCallbackThread {
     /**
      * callback log
      */
-    private void callbackLog(List<HandleCallbackParam> callbackParamList, String logContent){
-        for (HandleCallbackParam callbackParam: callbackParamList) {
+    private void callbackLog(List<HandleCallbackParam> callbackParamList, String logContent) {
+        for (HandleCallbackParam callbackParam : callbackParamList) {
             String logFileName = XxlJobFileAppender.makeLogFileName(new Date(callbackParam.getLogDateTim()), callbackParam.getLogId());
             XxlJobFileAppender.contextHolder.set(logFileName);
             XxlJobLogger.log(logContent);
@@ -193,9 +208,9 @@ public class TriggerCallbackThread {
     private static String failCallbackFilePath = XxlJobFileAppender.getLogPath().concat(File.separator).concat("callbacklog").concat(File.separator);
     private static String failCallbackFileName = failCallbackFilePath.concat("xxl-job-callback-{x}").concat(".log");
 
-    private void appendFailCallbackFile(List<HandleCallbackParam> callbackParamList){
+    private void appendFailCallbackFile(List<HandleCallbackParam> callbackParamList) {
         // valid
-        if (callbackParamList==null || callbackParamList.size()==0) {
+        if (callbackParamList == null || callbackParamList.size() == 0) {
             return;
         }
 
@@ -204,7 +219,7 @@ public class TriggerCallbackThread {
         File callbackLogFile = new File(failCallbackFileName.replace("{x}", String.valueOf(System.currentTimeMillis())));
         if (callbackLogFile.exists()) {
             for (int i = 0; i < 100; i++) {
-                callbackLogFile = new File(failCallbackFileName.replace("{x}", String.valueOf(System.currentTimeMillis()).concat("-").concat(String.valueOf(i)) ));
+                callbackLogFile = new File(failCallbackFileName.replace("{x}", String.valueOf(System.currentTimeMillis()).concat("-").concat(String.valueOf(i))));
                 if (!callbackLogFile.exists()) {
                     break;
                 }
