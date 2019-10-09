@@ -10,6 +10,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import javax.servlet.http.HttpServletRequest;
+
 
 /**
  * executor EndPoint
@@ -26,7 +28,12 @@ public class ExecutorBizEndPoint {
      * @return success | fail
      */
     @PostMapping("/v1/executor/api")
-    public ReturnT<String> run(@RequestBody TriggerParam triggerParam) {
+    public ReturnT<String> run(@RequestBody TriggerParam triggerParam, HttpServletRequest httpServletRequest) {
+        String remoteHost = httpServletRequest.getRemoteHost();
+
+        if (!DiscoveryUtil.hostExist(remoteHost)) {
+            return ReturnT.FAIL;
+        }
         return executorBiz.run(triggerParam);
     }
 

@@ -2,15 +2,13 @@ package com.xxl.job.core.util;
 
 import com.netflix.appinfo.InstanceInfo;
 import com.netflix.discovery.shared.Application;
+import com.netflix.discovery.shared.Applications;
 import com.netflix.discovery.shared.LookupService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.util.CollectionUtils;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * JOB ADMIN CONSOLE SERVICE LIST
@@ -67,6 +65,28 @@ public class DiscoveryUtil {
             logger.error("service does not exist -> {}", appName);
         }
         return instances;
+    }
+
+    /**
+     * Determines if the remote host already exists
+     * @param host admin console address
+     * @return true | false
+     */
+    public static boolean hostExist(String host){
+        for (String admin : adminServicesList.keySet()) {
+            List<String> urls = adminServicesList.get(admin);
+
+            List<String> ipList = new ArrayList<>(3);
+            for (String url : urls) {
+                String[] split = url.split(":");
+                ipList.add(split[0]);
+            }
+
+            if (ipList.contains(host)) {
+                return true;
+            }
+        }
+        return false;
     }
 
 }
