@@ -3,35 +3,29 @@
 #### 介绍
 基于xxl-job改造服务注册中心实现服务自动发现的分布式定时任务
 
+#### 编写背景
+为解决公司项目微服务拆分下带来的netty端口管理问题，采用基于注册中心实现的自服务发现进行调度。目前已支持eureka，下一版本支持nacos
+
 #### 软件架构
-软件架构说明
+![image](https://gitee.com/YIJIUE/xxl-job-discovery/blob/master/doc/images/xxl-job-discovery.png)
 
 
-#### 安装教程
-
-1. xxxx
-2. xxxx
-3. xxxx
-
+#### 软件环境
+````
+1. JDK1.8+
+2. springboot1.5x+ | springboot2.x+
+````
 #### 使用说明
+1. 导入数据库sql
+2. 根据需要修改对应properties属性
+3. 输入网页地址 `http://ip:port` 
+![image](https://gitee.com/YIJIUE/xxl-job-discovery/blob/master/doc/images/使用步骤.png)
+4. 根据需要修改测试用例属性 将示例执行器启动
+![image](https://gitee.com/YIJIUE/xxl-job-discovery/blob/master/doc/images/示例应用.png)
+5. 调度中心新增执行器 30s内`执行器`会自动发现`调度器`
+![image](https://gitee.com/YIJIUE/xxl-job-discovery/blob/master/doc/images/新增执行器.png)
 
-1. xxxx
-2. xxxx
-3. xxxx
-
-#### 参与贡献
-
-1. Fork 本仓库
-2. 新建 Feat_xxx 分支
-3. 提交代码
-4. 新建 Pull Request
+#
+感谢原作者
 
 
-#### 码云特技
-
-1. 使用 Readme\_XXX.md 来支持不同的语言，例如 Readme\_en.md, Readme\_zh.md
-2. 码云官方博客 [blog.gitee.com](https://blog.gitee.com)
-3. 你可以 [https://gitee.com/explore](https://gitee.com/explore) 这个地址来了解码云上的优秀开源项目
-4. [GVP](https://gitee.com/gvp) 全称是码云最有价值开源项目，是码云综合评定出的优秀开源项目
-5. 码云官方提供的使用手册 [https://gitee.com/help](https://gitee.com/help)
-6. 码云封面人物是一档用来展示码云会员风采的栏目 [https://gitee.com/gitee-stars/](https://gitee.com/gitee-stars/)
