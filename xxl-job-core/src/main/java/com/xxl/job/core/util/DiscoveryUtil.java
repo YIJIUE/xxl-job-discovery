@@ -40,6 +40,7 @@ public class DiscoveryUtil {
                 serviceList.add(service);
             });
             adminServicesList.put(name, serviceList);
+            logger.info("registry scheduled success : {}", name);
         }
     }
 
